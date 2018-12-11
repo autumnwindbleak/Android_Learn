@@ -16,7 +16,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     /**
-     * call when user do click on the button
+     * call when user do click on the "Send" Button
      * @param view
      */
     public void sendMessage(View view){
@@ -24,6 +24,11 @@ public class MainActivity extends AppCompatActivity {
         EditText editText = (EditText) findViewById(R.id.editText);
         String message = editText.getText().toString();
         intent.putExtra(MESSAGE,message);
+        startActivity(intent);
+    }
+
+    public void CameraActivity(View view){
+        Intent intent = new Intent(this, CameraActivity.class);
         startActivity(intent);
     }
 
