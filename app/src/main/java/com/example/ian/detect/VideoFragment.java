@@ -5,19 +5,36 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
+
+import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
+import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
+import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.params.StreamConfigurationMap;
+import android.media.ImageReader;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
+import android.util.Size;
 import android.view.LayoutInflater;
+import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -25,13 +42,65 @@ import android.view.ViewGroup;
  */
 public class VideoFragment extends Fragment {
 
+    /**
+     * TextureView for put prview
+     */
     TextureView mTextureview;
+
+    /**
+     * Image reader for capturing picture
+     */
+    ImageReader mImageReader;
+
+    /**
+     * asignal to block other thread for accessing
+     */
+    private Semaphore locker = new Semaphore(1);
+
+    /**
+     * a reference for camera device
+     */
+    private CameraDevice mCameraDevice;
+
+
+
+    /**
+     * {@link CameraDevice.StateCallback} is called when {@link CameraDevice} changes its state.
+     * Which means it is called when the openCamera() is called
+     */
+    private final CameraDevice.StateCallback mStateCallback = new CameraDevice.StateCallback() {
+        @Override
+        public void onOpened(@NonNull CameraDevice camera) {
+            locker.release();
+            mCameraDevice = camera;
+        }
+
+        @Override
+        public void onDisconnected(@NonNull CameraDevice camera) {
+            locker.release();
+            camera.close();
+            mCameraDevice=null;
+
+        }
+
+        @Override
+        public void onError(@NonNull CameraDevice camera, int error) {
+            locker.release();
+            camera.close();
+            mCameraDevice=null;
+            if(getActivity()==null){
+                getActivity().finish();;
+            }
+
+        }
+    };
+
 
     /**
      * return an instance of VideoFragment
      * @return
      */
-    public static VideoFragment newInstance(){
+    public static VideoFragment newInstance() {
         return new VideoFragment();
     }
 
@@ -61,6 +130,12 @@ public class VideoFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        if(mTextureview.isAvailable()){
+            openCamera();
+        }else{
+            mTextureview.setSurfaceTextureListener(mSurfaceTextureListener);
+        }
+
     }
 
 
@@ -68,7 +143,7 @@ public class VideoFragment extends Fragment {
     private final TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surface, int width, int height) {
-            openCamera(width,height);
+            openCamera();
         }
 
         @Override
@@ -90,24 +165,129 @@ public class VideoFragment extends Fragment {
     /**
      *  opening and initialize the camera
      *
-     * @param width
-     * @param height
      */
-    private void openCamera(int width, int height){
+    private void openCamera() {
 
         //check camera permission
-        if(!isCameraPermissionGranted()){
+        if(ContextCompat.checkSelfPermission(getActivity(),Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED){
             requestCameraPermission();
-        }
-        String frontCamera = getFrontCamera();
-        if(frontCamera == null){
-            ErrorDialog
+            return;
         }
 
+
+        String frontCamera = getFrontCamera();
+        if (frontCamera == null) {
+            ErrorDialog.newInstance("Can't find Front Camera")
+                    .show(getChildFragmentManager(), "Dialog");
+        }
+        CameraManager manager = (CameraManager) getActivity().getSystemService(Context.CAMERA_SERVICE);
+        try {
+            //use locker to give some time for camera to open,
+            //  it will release after manager.openCamera() is called,check on mStateCallback parameters
+
+            if (!locker.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
+                throw new RuntimeException("Timeout waiting for camera to open");
+            }
+            manager.openCamera(frontCamera, mStateCallback, mBackgroundHandler);
+            createCameraPreview();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    /**
+     * CaptureRequest.Builder for create a preview
+     */
+    private CaptureRequest.Builder mCaptureRequestBuilder;
+
+
+
+    /**
+     * A {@link CameraCaptureSession } for camera preview.
+     */
+    private CameraCaptureSession mCaptureSession;
+
+
+    /**
+     * Capture request for camera preview
+     */
+
+    private CaptureRequest mCaptureRequest;
+
+
+    /**
+     * handling tasks from background
+     */
+    private Handler mBackgroundHandler;
+
+    /**
+     *
+     */
+
+
+    /**
+     * Create camera preview
+     */
+    private void createCameraPreview(){
+        SurfaceTexture texture = mTextureview.getSurfaceTexture();
+        //check if the texture is null
+        assert texture != null;
+        //set the size of the texture
+        texture.setDefaultBufferSize(mTextureview.getWidth(),mTextureview.getHeight());
+
+
+
+        Surface surface = new Surface(texture);
+        try {
+            // Set up a CaptureRequest.Builder with the output Surface.
+            mCaptureRequestBuilder = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            mCaptureRequestBuilder.addTarget(surface);
+
+            // Here, we create a CameraCaptureSession for camera preview.
+            //First create a callback
+            CameraCaptureSession.StateCallback stateCallback = new CameraCaptureSession.StateCallback() {
+                @Override
+                public void onConfigured(@NonNull CameraCaptureSession session) {
+                    //if camera is closed
+                    if (mCameraDevice == null){
+                        return;
+                    }
+                    mCaptureSession = session;
+                    // Auto focus should be continuous for camera preview.and auto exposure
+                    mCaptureRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE,CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+
+
+                    mCaptureRequest = mCaptureRequestBuilder.build();
+                    mCaptureSession.setRepeatingRequest(mCaptureRequestBuilder.build(), mCaptureCallback, mBackgroundHandler)
+
+
+
+                }
+
+                @Override
+                public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+                }
+            }
+
+
+
+
+
+        } catch (CameraAccessException e) {
+            e.printStackTrace();
+        }
 
 
     }
 
+    /**
+     * Find front Camera
+     * @return String CameraID or null if not found
+     */
     private String getFrontCamera(){
         Activity activity = getActivity();
         CameraManager manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
@@ -118,6 +298,19 @@ public class VideoFragment extends Fragment {
                 if(characteristics.get(CameraCharacteristics.LENS_FACING)!= null
                         &&
                         characteristics.get(CameraCharacteristics.LENS_FACING)== CameraCharacteristics.LENS_FACING_FRONT){
+
+                    // https://developer.android.com/reference/android/hardware/camera2/params/StreamConfigurationMap
+                    //This is the authoritative list for all output formats (and sizes respectively for that format) that are supported by a camera device.
+                    //contains the minimum frame durations and stall durations for each format/size combination that can be used to calculate effective frame rate when submitting multiple captures.
+                    StreamConfigurationMap map = characteristics.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
+                    if(map == null){
+                        break;
+                    }
+                    Size largest = Collections.max(Arrays.asList(map.getOutputSizes(ImageFormat.JPEG)),new CompareSizeByArea());
+
+                    //Create ImageReader to capture image
+                    // maximages: Maximum number of images that can be acquired from the ImageReader by any time (for example, with acquireNextImage()).
+                    mImageReader = ImageReader.newInstance(largest.getWidth(),largest.getHeight(),ImageFormat.JPEG,2);
                     return cameraid;
                 }
             }
@@ -146,14 +339,16 @@ public class VideoFragment extends Fragment {
 
     }
 
+
     /**
-     * check if the camera permission is granted
-     * @return true for have permission false for not
+     * Comparator class for compare the Size of a output
      */
-    private boolean isCameraPermissionGranted(){
-        //getActivity() returns the current activity
-        return ContextCompat.checkSelfPermission(getActivity(),Manifest.permission.CAMERA)
-                == PackageManager.PERMISSION_GRANTED;
+    static class CompareSizeByArea implements Comparator<Size>{
+        @Override
+        public int compare(Size o1, Size o2) {
+            //use Long.signum to avoid get overflow of int after multiply
+            return Long.signum((long)o1.getHeight()*o1.getWidth()-(long)o2.getHeight()*o2.getWidth());
+        }
     }
 
 
