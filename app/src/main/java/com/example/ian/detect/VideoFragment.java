@@ -14,6 +14,8 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.CaptureResult;
+import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.ImageReader;
 import android.os.Bundle;
@@ -224,10 +226,68 @@ public class VideoFragment extends Fragment {
      */
     private Handler mBackgroundHandler;
 
+
+
+
+    //////////////////////////////////////////////////Camera States////////////////////////////////////////
+
+    private int CameraState = STATE_PREVIEW;
+
     /**
-     *
+     * Camera state: Showing camera preview.
+     */
+    private static final int STATE_PREVIEW = 0;
+
+    /**
+     * Camera state: Waiting for the focus to be locked.
+     */
+    private static final int STATE_WAITING_LOCK = 1;
+
+    /**
+     * Camera state: Waiting for the exposure to be precapture state.
+     */
+    private static final int STATE_WAITING_PRECAPTURE = 2;
+
+    /**
+     * Camera state: Waiting for the exposure state to be something other than precapture.
+     */
+    private static final int STATE_WAITING_NON_PRECAPTURE = 3;
+
+    /**
+     * Camera state: Picture was taken.
+     */
+    private static final int STATE_PICTURE_TAKEN = 4;
+    /////////////////////////////////////////////////Camera States/////////////////////////////////////////
+
+
+    /**
+     * A {@link CameraCaptureSession.CaptureCallback} that handles events related to JPEG capture.
+     * also used in create preview
      */
 
+    private CameraCaptureSession.CaptureCallback mCaptureCallback = new CameraCaptureSession.CaptureCallback() {
+
+        private void process(@NonNull CaptureResult request){
+            switch (CameraState){
+                case STATE_PREVIEW:{
+                    break;
+                }
+            }
+        }
+
+
+
+
+        @Override
+        public void onCaptureProgressed(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull CaptureResult partialResult) {
+            process(partialResult);
+        }
+
+        @Override
+        public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
+            process(result);
+        }
+    };
 
     /**
      * Create camera preview
@@ -259,23 +319,23 @@ public class VideoFragment extends Fragment {
                     mCaptureSession = session;
                     // Auto focus should be continuous for camera preview.and auto exposure
                     mCaptureRequestBuilder.set(CaptureRequest.CONTROL_AE_MODE,CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-
-
+                    //build the request
                     mCaptureRequest = mCaptureRequestBuilder.build();
-                    mCaptureSession.setRepeatingRequest(mCaptureRequestBuilder.build(), mCaptureCallback, mBackgroundHandler)
-
-
-
+                    try {
+                        mCaptureSession.setRepeatingRequest(mCaptureRequestBuilder.build(), mCaptureCallback, mBackgroundHandler);
+                    } catch (CameraAccessException e) {
+                        e.printStackTrace();
+                    }
                 }
 
                 @Override
                 public void onConfigureFailed(@NonNull CameraCaptureSession session) {
+                    ErrorDialog.newInstance("Can't Create mCaptureSession")
+                            .show(getChildFragmentManager(), "Dialog");
                 }
-            }
-
-
-
-
+            };
+            //create CameraCaptureSession
+            mCameraDevice.createCaptureSession(Arrays.asList(surface,mImageReader.getSurface()),stateCallback,null);
 
         } catch (CameraAccessException e) {
             e.printStackTrace();
