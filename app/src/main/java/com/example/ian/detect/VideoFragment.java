@@ -20,6 +20,7 @@ import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.ImageReader;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
@@ -54,6 +55,9 @@ public class VideoFragment extends Fragment {
      */
     ImageReader mImageReader;
 
+
+
+
     /**
      * asignal to block other thread for accessing
      */
@@ -65,6 +69,21 @@ public class VideoFragment extends Fragment {
     private CameraDevice mCameraDevice;
 
 
+    /**
+     * handling tasks from background
+     */
+    private Handler mBackgroundHandler;
+
+    /**
+     * background thread
+     */
+    private HandlerThread mBackgroundThread;
+
+    private void startBackgroundThread(){
+        mBackgroundThread = new HandlerThread("CameraBackground");
+        mBackgroundThread.start();
+        mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
+    }
 
     /**
      * {@link CameraDevice.StateCallback} is called when {@link CameraDevice} changes its state.
@@ -126,12 +145,57 @@ public class VideoFragment extends Fragment {
 
     @Override
     public void onPause() {
+        closeCamera();
+        stopBackgroundThread();
         super.onPause();
     }
 
+    /**
+     * Closes the current {@link CameraDevice}.
+     */
+    private void closeCamera() {
+        try {
+            locker.acquire();
+            if (null != mCaptureSession) {
+                mCaptureSession.close();
+                mCaptureSession = null;
+            }
+            if (null != mCameraDevice) {
+                mCameraDevice.close();
+                mCameraDevice = null;
+            }
+            if (null != mImageReader) {
+                mImageReader.close();
+                mImageReader = null;
+            }
+        } catch (InterruptedException e) {
+            throw new RuntimeException("Interrupted while trying to lock camera closing.", e);
+        } finally {
+            locker.release();
+        }
+    }
+
+    /**
+     * Stops the background thread and its {@link Handler}.
+     */
+    private void stopBackgroundThread() {
+        mBackgroundThread.quitSafely();
+        try {
+            mBackgroundThread.join();
+            mBackgroundThread = null;
+            mBackgroundHandler = null;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * all actions start from here
+     */
     @Override
     public void onResume() {
         super.onResume();
+        startBackgroundThread();
         if(mTextureview.isAvailable()){
             openCamera();
         }else{
@@ -176,10 +240,9 @@ public class VideoFragment extends Fragment {
             requestCameraPermission();
             return;
         }
-
-
-        String frontCamera = getFrontCamera();
-        if (frontCamera == null) {
+        //get frontCamera id
+        String frontCameraId = getFrontCamera();
+        if (frontCameraId == null) {
             ErrorDialog.newInstance("Can't find Front Camera")
                     .show(getChildFragmentManager(), "Dialog");
         }
@@ -191,7 +254,8 @@ public class VideoFragment extends Fragment {
             if (!locker.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
                 throw new RuntimeException("Timeout waiting for camera to open");
             }
-            manager.openCamera(frontCamera, mStateCallback, mBackgroundHandler);
+            //open the camera and get the mCameraDevice instance for control the camera
+            manager.openCamera(frontCameraId, mStateCallback, mBackgroundHandler);
             createCameraPreview();
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -219,12 +283,6 @@ public class VideoFragment extends Fragment {
      */
 
     private CaptureRequest mCaptureRequest;
-
-
-    /**
-     * handling tasks from background
-     */
-    private Handler mBackgroundHandler;
 
 
 
