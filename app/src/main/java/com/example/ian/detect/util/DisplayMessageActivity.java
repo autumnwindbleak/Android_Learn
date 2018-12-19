@@ -1,9 +1,12 @@
-package com.example.ian.detect;
+package com.example.ian.detect.util;
 
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.widget.TextView;
+
+import com.example.ian.detect.MainActivity;
+import com.example.ian.detect.R;
 
 public class DisplayMessageActivity extends AppCompatActivity {
 
