@@ -62,6 +62,7 @@ public class CameraActivity extends AppCompatActivity {
 //                Log.d("autumnwindbleak", "onOrientationChanged: rotation = " + rotation
 //                        + "\tbutton rotation = " + buttonOritation + "\torientation = " + newOrientation );
                 imageButton.animate().rotation(0 - newOrientation).start();
+                imageButton.isr
             }
         }
     }

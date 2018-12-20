@@ -6,8 +6,6 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.EditText;
 
-import com.example.ian.detect.util.DisplayMessageActivity;
-
 public class MainActivity extends AppCompatActivity {
     public static String MESSAGE = "com.example.ian.detect.MESSAGE";
 

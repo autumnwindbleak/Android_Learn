@@ -1,4 +1,4 @@
-package com.example.ian.detect.util;
+package com.example.ian.detect;
 
 import android.content.Intent;
 import android.support.v7.app.AppCompatActivity;

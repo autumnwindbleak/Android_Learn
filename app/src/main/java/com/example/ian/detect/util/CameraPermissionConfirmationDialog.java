@@ -1,4 +1,4 @@
-package com.example.ian.detect;
+package com.example.ian.detect.util;
 
 import android.Manifest;
 import android.app.Activity;
