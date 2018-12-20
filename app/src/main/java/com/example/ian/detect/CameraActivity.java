@@ -35,37 +35,70 @@ public class CameraActivity extends AppCompatActivity {
 
 
     /**
-     * set a orientation listener to check the orientation and set the right orientation of the button
+     * set a orientation listener to check the orientation and set the right orientation of the button(only 4 directions)
      */
 
     private class OrientationListener extends OrientationEventListener{
+
+        /**
+         * set a flag to tell if the animation of the button is finished or not
+         */
+        private boolean finished;
+        /**
+         * record the last orientation to find out the rotation.
+         */
+        private int oldorientation;
         public OrientationListener(Context context) {
             super(context);
+            finished = true;
+            oldorientation = 0;
         }
         public OrientationListener(Context context, int delay){
             super(context,delay);
+            finished = true;
+            oldorientation = 0;
         }
 
         @Override
         public void onOrientationChanged(int orientation) {
+
+            //if animation is not finished, do nothing
+            if(!finished){
+                return;
+            }
+            //if orientation is unknown stop it
             if(orientation == OrientationEventListener.ORIENTATION_UNKNOWN){
                 return;
             }
+            //only bigger than 45 degree orientation is count
             int newOrientation = (orientation % 360 + 45) / 90 * 90;
             if(newOrientation == 360){
                 newOrientation = 0;
             }
-            int buttonOritation = ((int) imageButton.getRotation() % 360 + 45)/90 * 90;
-//            Log.d("autumnwindbleak", "onOrientationChanged: neworientation = " + newOrientation);
-            int rotation = newOrientation - buttonOritation;
+            //find the rotation
+            int rotation = oldorientation - newOrientation;
+            //if need rotate 270 clockwise then go 90 anti-clockwise
+            if(rotation == 270){
+                rotation = -90;
+            }
+            //if need rotate 270 anti-clockwise then go 90 clockwise
+            if(rotation == -270){
+                rotation = 90;
+            }
+            //record the oldorientation
+            oldorientation = newOrientation;
+            //if rotation is 0 no need to do anything
             if(rotation != 0) {
-//                Log.d("autumnwindbleak", "onOrientationChanged: rotation = " + rotation
-//                        + "\tbutton rotation = " + buttonOritation + "\torientation = " + newOrientation );
-                imageButton.animate().rotation(0 - newOrientation).start();
-                imageButton.isr
+                //rotate the button and when the animation stop set flag to true
+                imageButton.animate().rotationBy(rotation).withEndAction(new Runnable() {
+                    @Override
+                    public void run() {
+                        finished = true;
+                }
+                }).start();
+                //set flag to false
+                finished = false;
             }
         }
     }
-
-
 }
