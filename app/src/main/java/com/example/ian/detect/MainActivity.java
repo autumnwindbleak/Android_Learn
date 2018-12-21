@@ -27,6 +27,10 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
+    /**
+     * call when user click on "Camera" button
+     * @param view
+     */
     public void CameraActivity(View view){
         Intent intent = new Intent(this, CameraActivity.class);
         startActivity(intent);

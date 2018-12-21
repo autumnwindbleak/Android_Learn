@@ -6,6 +6,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.OrientationEventListener;
+import android.view.View;
 import android.widget.ImageButton;
 
 
@@ -33,11 +34,49 @@ public class CameraActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+////////////////////////send take photo to fragment////////////////////////////////////
+
+
+
+
+
+    /**
+     * when user click on the take photo imagebutton
+     * @param view
+     */
+    public void takepicture(View view){
+        //send click event to fragment
+        if(mTakePhotoListener != null){
+            mTakePhotoListener.onClick();
+        }
+    }
+
+    //set the listener
+    private TakePhotoListener mTakePhotoListener;
+
+
+
+    public void registerTakePhotoListener(TakePhotoListener mTakePhotoListener){
+        this.mTakePhotoListener = mTakePhotoListener;
+    }
+
+    // create a interface for fragment to implement
+    public interface TakePhotoListener{
+        public void onClick();
+    }
+
+
+
+////////////////////////send take photo to fragment////////////////////////////////////
+
+
+
+
+
 
     /**
      * set a orientation listener to check the orientation and set the right orientation of the button(only 4 directions)
      */
-
     private class OrientationListener extends OrientationEventListener{
 
         /**
@@ -59,6 +98,10 @@ public class CameraActivity extends AppCompatActivity {
             oldorientation = 0;
         }
 
+        /**
+         * when orientation changed this function is called
+         * @param orientation
+         */
         @Override
         public void onOrientationChanged(int orientation) {
 
