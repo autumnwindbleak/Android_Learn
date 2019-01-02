@@ -57,6 +57,8 @@ import java.util.concurrent.TimeUnit;
  */
 public class VideoFragment extends Fragment {
 
+    private String TAG = "autumnwindbleak";
+
 
     /**
      * asignal to block other thread for accessing
@@ -334,7 +336,6 @@ public class VideoFragment extends Fragment {
                 case STATE_TAKE_PICTURE: {
 
                     Integer afState = request.get(CaptureResult.CONTROL_AF_STATE);
-                    Log.d("autumnwindbleak", "process: STATE_TAKE_PICTURE focust state is " + afState);
                     /**
                      * this part is to check the focus states
                      *
@@ -355,7 +356,7 @@ public class VideoFragment extends Fragment {
                         if(aeState == null || aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED|| aeState == CaptureResult.CONTROL_AE_STATE_FLASH_REQUIRED){
                             //if exposure is good
                             CameraState = STATE_PICTURE_TAKEN;
-                            Log.d("autumnwindbleak", "process: focus exposure good");
+                            Log.d(TAG, "process: focus exposure good");
                             captureStillImage();
                         }else{
                             //if AE has been asked to do a precapture sequence and is currently executing it.
@@ -363,13 +364,13 @@ public class VideoFragment extends Fragment {
                                 //do nothing wait for the next callback
                             }else {
                                 //try to set exposure
-                                Log.d("autumnwindbleak", "process: set Exposure, right now is:" + aeState);
+                                Log.d(TAG, "process: set Exposure, right now is:" + aeState);
                                 setExposure();
                             }
                         }
                     }else{
                         //if focus is not locked try again
-//                        Log.d("autumnwindbleak", "Focus Locked failed, try again now. Focus states now are :" + afState);
+//                        Log.d(TAG, "Focus Locked failed, try again now. Focus states now are :" + afState);
                         lockFocus();
                     }
                     break;
@@ -530,6 +531,7 @@ public class VideoFragment extends Fragment {
             = new ImageReader.OnImageAvailableListener() {
         @Override
         public void onImageAvailable(ImageReader reader) {
+            Log.d(TAG, "onImageAvailable: acquire new image");
             mBackgroundHandler.post(new ImageSaver(reader.acquireNextImage()));
         }
     };
@@ -549,9 +551,19 @@ public class VideoFragment extends Fragment {
          */
         @Override
         public void run() {
-            File outputFile = new File(Environment.getExternalStorageDirectory(),System.currentTimeMillis()+".jpg");
+            //check read and write permission,if don't have then request permission
+            if(ContextCompat.checkSelfPermission(getActivity(),Manifest.permission.READ_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED){
+                requestPermissions(new String[] {Manifest.permission.READ_EXTERNAL_STORAGE},1);
+            }
+            if(ContextCompat.checkSelfPermission(getActivity(),Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED){
+                requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE},1);
+            }
+
+            File outputFile = new File(Environment.getExternalStorageDirectory(),"Pictures/" + System.currentTimeMillis() + ".jpg");
             ByteBuffer buffer = mImage.getPlanes()[0].getBuffer();
-            Log.d("autumnwindbleak", "Image saved to :" + outputFile.getAbsolutePath());
+            Log.d(TAG, "Image saved to :" + outputFile.getAbsolutePath());
             byte[] bytes = new byte[buffer.remaining()];
             buffer.get(bytes);
             FileOutputStream output = null;
@@ -580,7 +592,7 @@ public class VideoFragment extends Fragment {
     private final CameraActivity.TakePhotoListener mTakePhotoListener = new CameraActivity.TakePhotoListener() {
         @Override
         public void onClick() {
-            Log.d("autumnwindbleak", "Clicked! ");
+            Log.d(TAG, "Clicked! ");
             lockFocus();
         }
     };
@@ -631,6 +643,7 @@ public class VideoFragment extends Fragment {
             CameraManager manager = (CameraManager)getActivity().getSystemService(Context.CAMERA_SERVICE);
             int rotation = manager.getCameraCharacteristics(frontCameraId).get(CameraCharacteristics.SENSOR_ORIENTATION);
             mCaptureRequestBuilder.set(CaptureRequest.JPEG_ORIENTATION,rotation);
+            mCaptureRequestBuilder.addTarget(mImageReader.getSurface());
 
             CameraCaptureSession.CaptureCallback captureCallback = new CameraCaptureSession.CaptureCallback() {
                 @Override
@@ -642,14 +655,14 @@ public class VideoFragment extends Fragment {
             mCaptureSession.abortCaptures();
             //take a picture;
             mCaptureSession.capture(mCaptureRequestBuilder.build(),captureCallback,mBackgroundHandler);
-            Log.d("autumnwindbleak", "captureStillImage: done");
+            Log.d(TAG, "captureStillImage: done");
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
     }
 
     private void unlockFocusAndExposure(){
-        Log.d("autumnwindbleak", "unlockFocusAndExposure: ");
+        Log.d(TAG, "unlockFocusAndExposure: ");
         //reset auto focus trigger
         mCaptureRequestBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_CANCEL);
         //reset auto exposure trigger
