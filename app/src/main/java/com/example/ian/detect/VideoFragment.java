@@ -329,6 +329,7 @@ public class VideoFragment extends Fragment {
     private CameraCaptureSession.CaptureCallback mCaptureCallback = new CameraCaptureSession.CaptureCallback() {
 
         private void process(@NonNull CaptureResult request){
+            Log.d("camerastate", "process: state now are "+ CameraState);
             switch (CameraState){
                 case STATE_PREVIEW:{
                     break;
@@ -344,29 +345,31 @@ public class VideoFragment extends Fragment {
                      * CONTROL_AF_STATE_NOT_FOCUSED_LOCKED  means not focused but locked
                      */
 
+                    Log.d("camerastate", "process: afstate now are "+ afState);
                     if(afState == null || afState == CaptureResult.CONTROL_AF_STATE_FOCUSED_LOCKED
                             || afState == CaptureResult.CONTROL_AF_STATE_NOT_FOCUSED_LOCKED){
                         Integer aeState = request.get(CaptureResult.CONTROL_AE_STATE);
+                        Log.d("camerastate", "process: aestate now are "+ aeState);
                         /**
                          * this part is to check the exposure states
                          *
                          * null                         some device the aeState will return null after good exposure
                          * CONTROL_AE_STATE_CONVERGED   means the exposure is good now
+                         * CONTROL_AE_STATE_PRECAPTURE  AE has been asked to do a precapture sequence and is currently executing it.
+                         *                              Precapture can be triggered through setting android.control.aePrecaptureTrigger to START. Currently active and completed
+                         *                              (if it causes camera device internal AE lock) precapture metering sequence can be canceled through setting android.control.aePrecaptureTrigger to CANCEL.
+                         *                              Once PRECAPTURE completes, AE will transition to CONVERGED or FLASH_REQUIRED as appropriate. This is a transient state,
+                         *                              the camera device may skip reporting this state in capture result.
                          */
-                        if(aeState == null || aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED|| aeState == CaptureResult.CONTROL_AE_STATE_FLASH_REQUIRED){
+                        if(aeState == null || aeState == CaptureResult.CONTROL_AE_STATE_CONVERGED|| aeState == CaptureResult.CONTROL_AE_STATE_FLASH_REQUIRED|| aeState == CaptureResult.CONTROL_AE_STATE_PRECAPTURE){
                             //if exposure is good
                             CameraState = STATE_PICTURE_TAKEN;
                             Log.d(TAG, "process: focus exposure good");
                             captureStillImage();
                         }else{
-                            //if AE has been asked to do a precapture sequence and is currently executing it.
-                            if(aeState == CaptureResult.CONTROL_AE_STATE_PRECAPTURE){
-                                //do nothing wait for the next callback
-                            }else {
-                                //try to set exposure
-                                Log.d(TAG, "process: set Exposure, right now is:" + aeState);
-                                setExposure();
-                            }
+                            //try to set exposure
+                            Log.d(TAG, "process: set Exposure, right now is:" + aeState);
+                            setExposure();
                         }
                     }else{
                         //if focus is not locked try again
@@ -639,11 +642,15 @@ public class VideoFragment extends Fragment {
         //create a call back for capture still image
         try {
 
+            final CaptureRequest.Builder captureBuilder =
+                    mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
             // Orientation
             CameraManager manager = (CameraManager)getActivity().getSystemService(Context.CAMERA_SERVICE);
             int rotation = manager.getCameraCharacteristics(frontCameraId).get(CameraCharacteristics.SENSOR_ORIENTATION);
-            mCaptureRequestBuilder.set(CaptureRequest.JPEG_ORIENTATION,rotation);
-            mCaptureRequestBuilder.addTarget(mImageReader.getSurface());
+            // This is the CaptureRequest.Builder that we use to take a picture.
+
+            captureBuilder.set(CaptureRequest.JPEG_ORIENTATION,rotation);
+            captureBuilder.addTarget(mImageReader.getSurface());
 
             CameraCaptureSession.CaptureCallback captureCallback = new CameraCaptureSession.CaptureCallback() {
                 @Override
@@ -654,7 +661,7 @@ public class VideoFragment extends Fragment {
             mCaptureSession.stopRepeating();
             mCaptureSession.abortCaptures();
             //take a picture;
-            mCaptureSession.capture(mCaptureRequestBuilder.build(),captureCallback,mBackgroundHandler);
+            mCaptureSession.capture(captureBuilder.build(),captureCallback,mBackgroundHandler);
             Log.d(TAG, "captureStillImage: done");
         } catch (CameraAccessException e) {
             e.printStackTrace();
