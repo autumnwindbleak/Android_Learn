@@ -4,8 +4,11 @@ package com.example.ian.detect;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -28,6 +31,7 @@ import android.support.annotation.Nullable;
 
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 import android.util.Size;
 import android.view.LayoutInflater;
@@ -535,7 +539,19 @@ public class VideoFragment extends Fragment {
         @Override
         public void onImageAvailable(ImageReader reader) {
             Log.d(TAG, "onImageAvailable: acquire new image");
-            mBackgroundHandler.post(new ImageSaver(reader.acquireNextImage()));
+            Image image = reader.acquireNextImage();
+            mBackgroundHandler.post(new ImageSaver(image));
+
+            /**
+             * send the image by broadcast so the other fragment can receive it
+             */
+            ByteBuffer buffer = image.getPlanes()[0].getBuffer();
+            byte[] bytes = new byte[buffer.capacity()];
+            buffer.get(bytes);
+            Bitmap bitmap = BitmapFactory.decodeByteArray(bytes,0,bytes.length,null);
+            Intent intent = new Intent("VideoFragment");
+            intent.putExtra("image",bitmap);
+            LocalBroadcastManager.getInstance(getActivity()).sendBroadcast(intent);
         }
     };
 
@@ -564,7 +580,8 @@ public class VideoFragment extends Fragment {
                 requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE},1);
             }
 
-            File outputFile = new File(Environment.getExternalStorageDirectory(),"Pictures/" + System.currentTimeMillis() + ".jpg");
+//            File outputFile = new File(Environment.getExternalStorageDirectory(),"Pictures/" + System.currentTimeMillis() + ".jpg");
+            File outputFile = new File(Environment.getExternalStorageDirectory(),"Pictures/photo.jpg");
             ByteBuffer buffer = mImage.getPlanes()[0].getBuffer();
             Log.d(TAG, "Image saved to :" + outputFile.getAbsolutePath());
             byte[] bytes = new byte[buffer.remaining()];

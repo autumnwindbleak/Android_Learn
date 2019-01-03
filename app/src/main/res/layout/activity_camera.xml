@@ -30,4 +30,14 @@
         app:layout_constraintStart_toStartOf="parent"
         app:srcCompat="@mipmap/ic_launcher" />
 
+    <fragment
+        android:id="@+id/fragment2"
+        android:name="com.example.ian.detect.ImageFragment"
+        android:layout_width="164dp"
+        android:layout_height="251dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginEnd="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
 </android.support.constraint.ConstraintLayout>
