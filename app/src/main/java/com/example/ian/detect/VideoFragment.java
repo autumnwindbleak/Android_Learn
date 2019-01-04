@@ -7,6 +7,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 
+import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
@@ -214,8 +215,24 @@ public class VideoFragment extends Fragment {
         }else{
             mTextureview.setSurfaceTextureListener(mSurfaceTextureListener);
         }
+        if(SelfConfiguration.LOOP_TAKE_IMAGE ){
+            loopSendingImage();
+        }
+    }
 
-
+    /**
+     * loop to send image to capture a image for several seconds
+     */
+    private void loopSendingImage(){
+        Runnable task = new Runnable() {
+            @Override
+            public void run() {
+                Handler handler = new Handler();
+                captureStillImage();
+                handler.postDelayed(this,1000);
+            }
+        };
+        task.run();
     }
 
 
@@ -605,8 +622,9 @@ public class VideoFragment extends Fragment {
                     }
                 }
             }
-            sendImageToBroadcast(bytes);
-
+            if(SelfConfiguration.SEND_IMAGE_BROADCAST){
+                sendImageToBroadcast(bytes);
+            }
         }
     }
 
