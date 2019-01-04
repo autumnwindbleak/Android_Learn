@@ -41,6 +41,7 @@ import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 
 import com.example.ian.detect.util.CameraPermissionConfirmationDialog;
 import com.example.ian.detect.util.ErrorDialog;
@@ -153,6 +154,8 @@ public class VideoFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         mTextureview = view.findViewById(R.id.textureView);
+        ImageView imageView = view.findViewById(R.id.imageView2);
+        imageView.setImageAlpha(100);
     }
 
     @Override
