@@ -541,19 +541,20 @@ public class VideoFragment extends Fragment {
             Log.d(TAG, "onImageAvailable: acquire new image");
             Image image = reader.acquireNextImage();
             mBackgroundHandler.post(new ImageSaver(image));
-
-            /**
-             * send the image by broadcast so the other fragment can receive it
-             */
-            ByteBuffer buffer = image.getPlanes()[0].getBuffer();
-            byte[] bytes = new byte[buffer.capacity()];
-            buffer.get(bytes);
-            Bitmap bitmap = BitmapFactory.decodeByteArray(bytes,0,bytes.length,null);
-            Intent intent = new Intent("VideoFragment");
-            intent.putExtra("image",bitmap);
-            LocalBroadcastManager.getInstance(getActivity()).sendBroadcast(intent);
         }
     };
+
+    /**
+     * send image to the broadcast so other fragment can receive
+     * @param bytes
+     */
+    private void sendImageToBroadcast(byte[] bytes){
+        Bitmap bitmap = BitmapFactory.decodeByteArray(bytes,0,bytes.length,null);
+        Intent intent = new Intent("VideoFragment");
+        intent.putExtra("image",bitmap);
+        LocalBroadcastManager.getInstance(getActivity()).sendBroadcast(intent);
+    }
+
 
     private class ImageSaver implements Runnable{
         /**
@@ -604,6 +605,7 @@ public class VideoFragment extends Fragment {
                     }
                 }
             }
+            sendImageToBroadcast(bytes);
 
         }
     }
