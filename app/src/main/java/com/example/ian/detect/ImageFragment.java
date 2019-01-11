@@ -24,6 +24,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 
+import org.opencv.android.OpenCVLoader;
+
 
 /**
  * A simple {@link Fragment} subclass.
@@ -36,6 +38,22 @@ public class ImageFragment extends Fragment {
 
     ImageView mImageView;
 
+    private final static String TAG = "ImageFragment";
+
+    static{
+        if(OpenCVLoader.initDebug()){
+            try {
+                // the name of the actually is "libopencv_java4.so"
+                System.loadLibrary("opencv_java4");
+            }catch (Throwable e){
+                Log.d(TAG, "static initializer: load lib fail");
+            }
+            Log.d(TAG, "static initializer: succeed");
+
+        }else{
+            Log.d(TAG, "static initializer: failed");
+        }
+    }
 
     public ImageFragment() {
         // Required empty public constructor
@@ -90,6 +108,15 @@ public class ImageFragment extends Fragment {
                 Bitmap bitmap = intent.getParcelableExtra("image");
                 if(SelfConfiguration.GAUSSIAN_BLUR){
                     bitmap = GaussianBlur(getContext(),bitmap,25,5);
+                }
+                if(SelfConfiguration.PAPER_DETECTION){
+                    PaperDetection paperDetection = new PaperDetection(bitmap);
+                    paperDetection.run();
+                    bitmap = paperDetection.getGray();
+//                    bitmap = PaperDetection.newInstance(bitmap).run().getGray();
+                }
+                if(bitmap == null){
+                    return;
                 }
                 mImageView.setImageBitmap(bitmap);
                 mImageView.setImageAlpha(255);

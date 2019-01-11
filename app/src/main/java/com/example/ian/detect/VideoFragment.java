@@ -601,33 +601,40 @@ public class VideoFragment extends Fragment {
                 requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE},1);
             }
 
-//            File outputFile = new File(Environment.getExternalStorageDirectory(),"Pictures/" + System.currentTimeMillis() + ".jpg");
-            File outputFile = new File(Environment.getExternalStorageDirectory(),"Pictures/photo.jpg");
+            // get bytes data from image
             ByteBuffer buffer = mImage.getPlanes()[0].getBuffer();
-            Log.d(TAG, "Image saved to :" + outputFile.getAbsolutePath());
             byte[] bytes = new byte[buffer.remaining()];
             buffer.get(bytes);
-            FileOutputStream output = null;
-            try {
-                output = new FileOutputStream(outputFile);
-                output.write(bytes);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }finally {
-                mImage.close();
-                if(output != null){
-                    try {
-                        output.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
+
+            //if need to take a pic
+            if(SelfConfiguration.TAKE_PICTURE){
+                //            File outputFile = new File(Environment.getExternalStorageDirectory(),"Pictures/" + System.currentTimeMillis() + ".jpg");
+                File outputFile = new File(Environment.getExternalStorageDirectory(),"Pictures/photo.jpg");
+                Log.d(TAG, "Image saved to :" + outputFile.getAbsolutePath());
+                FileOutputStream output = null;
+                try {
+                    output = new FileOutputStream(outputFile);
+                    output.write(bytes);
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }finally {
+                    mImage.close();
+                    if(output != null){
+                        try {
+                            output.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
             }
             if(SelfConfiguration.SEND_IMAGE_BROADCAST){
                 sendImageToBroadcast(bytes);
             }
+            //close the image so it doesn't reach the max limit of Image Reader. Currently is 2
+            mImage.close();
         }
     }
 
@@ -636,7 +643,9 @@ public class VideoFragment extends Fragment {
         @Override
         public void onClick() {
             Log.d(TAG, "Clicked! ");
-            lockFocus();
+            if(SelfConfiguration.TAKE_PICTURE){
+                lockFocus();
+            }
         }
     };
 
