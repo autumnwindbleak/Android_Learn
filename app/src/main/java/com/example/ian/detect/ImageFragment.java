@@ -112,7 +112,8 @@ public class ImageFragment extends Fragment {
                 if(SelfConfiguration.PAPER_DETECTION){
                     PaperDetection paperDetection = new PaperDetection(bitmap);
                     paperDetection.run();
-                    bitmap = paperDetection.getGray();
+                    bitmap = paperDetection.getDrawing();
+//                    bitmap = paperDetection.getPaperArea();
 //                    bitmap = PaperDetection.newInstance(bitmap).run().getGray();
                 }
                 if(bitmap == null){
