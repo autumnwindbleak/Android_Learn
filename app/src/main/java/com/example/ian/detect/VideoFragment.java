@@ -4,8 +4,12 @@ package com.example.ian.detect;
 import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 
+import android.content.res.Configuration;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -28,6 +32,7 @@ import android.support.annotation.Nullable;
 
 import android.support.v4.app.Fragment;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.Log;
 import android.util.Size;
 import android.view.LayoutInflater;
@@ -36,6 +41,7 @@ import android.view.TextureView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 
 import com.example.ian.detect.util.CameraPermissionConfirmationDialog;
 import com.example.ian.detect.util.ErrorDialog;
@@ -148,6 +154,8 @@ public class VideoFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         mTextureview = view.findViewById(R.id.textureView);
+        ImageView imageView = view.findViewById(R.id.imageView2);
+        imageView.setImageAlpha(100);
     }
 
     @Override
@@ -210,8 +218,24 @@ public class VideoFragment extends Fragment {
         }else{
             mTextureview.setSurfaceTextureListener(mSurfaceTextureListener);
         }
+        if(SelfConfiguration.LOOP_TAKE_IMAGE ){
+            loopSendingImage();
+        }
+    }
 
-
+    /**
+     * loop to send image to capture a image for several seconds
+     */
+    private void loopSendingImage(){
+        Runnable task = new Runnable() {
+            @Override
+            public void run() {
+                Handler handler = new Handler();
+                captureStillImage();
+                handler.postDelayed(this,500);
+            }
+        };
+        task.run();
     }
 
 
@@ -329,7 +353,7 @@ public class VideoFragment extends Fragment {
     private CameraCaptureSession.CaptureCallback mCaptureCallback = new CameraCaptureSession.CaptureCallback() {
 
         private void process(@NonNull CaptureResult request){
-            Log.d("camerastate", "process: state now are "+ CameraState);
+//            Log.d("camerastate", "process: state now are "+ CameraState);
             switch (CameraState){
                 case STATE_PREVIEW:{
                     break;
@@ -535,9 +559,22 @@ public class VideoFragment extends Fragment {
         @Override
         public void onImageAvailable(ImageReader reader) {
             Log.d(TAG, "onImageAvailable: acquire new image");
-            mBackgroundHandler.post(new ImageSaver(reader.acquireNextImage()));
+            Image image = reader.acquireNextImage();
+            mBackgroundHandler.post(new ImageSaver(image));
         }
     };
+
+    /**
+     * send image to the broadcast so other fragment can receive
+     * @param bytes
+     */
+    private void sendImageToBroadcast(byte[] bytes){
+        Bitmap bitmap = BitmapFactory.decodeByteArray(bytes,0,bytes.length,null);
+        Intent intent = new Intent("VideoFragment");
+        intent.putExtra("image",bitmap);
+        LocalBroadcastManager.getInstance(getActivity()).sendBroadcast(intent);
+    }
+
 
     private class ImageSaver implements Runnable{
         /**
@@ -564,30 +601,40 @@ public class VideoFragment extends Fragment {
                 requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE},1);
             }
 
-            File outputFile = new File(Environment.getExternalStorageDirectory(),"Pictures/" + System.currentTimeMillis() + ".jpg");
+            // get bytes data from image
             ByteBuffer buffer = mImage.getPlanes()[0].getBuffer();
-            Log.d(TAG, "Image saved to :" + outputFile.getAbsolutePath());
             byte[] bytes = new byte[buffer.remaining()];
             buffer.get(bytes);
-            FileOutputStream output = null;
-            try {
-                output = new FileOutputStream(outputFile);
-                output.write(bytes);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }finally {
-                mImage.close();
-                if(output != null){
-                    try {
-                        output.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
+
+            //if need to take a pic
+            if(SelfConfiguration.TAKE_PICTURE){
+                //            File outputFile = new File(Environment.getExternalStorageDirectory(),"Pictures/" + System.currentTimeMillis() + ".jpg");
+                File outputFile = new File(Environment.getExternalStorageDirectory(),"Pictures/photo.jpg");
+                Log.d(TAG, "Image saved to :" + outputFile.getAbsolutePath());
+                FileOutputStream output = null;
+                try {
+                    output = new FileOutputStream(outputFile);
+                    output.write(bytes);
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }finally {
+                    mImage.close();
+                    if(output != null){
+                        try {
+                            output.close();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
             }
-
+            if(SelfConfiguration.SEND_IMAGE_BROADCAST){
+                sendImageToBroadcast(bytes);
+            }
+            //close the image so it doesn't reach the max limit of Image Reader. Currently is 2
+            mImage.close();
         }
     }
 
@@ -596,7 +643,9 @@ public class VideoFragment extends Fragment {
         @Override
         public void onClick() {
             Log.d(TAG, "Clicked! ");
-            lockFocus();
+            if(SelfConfiguration.TAKE_PICTURE){
+                lockFocus();
+            }
         }
     };
 
@@ -643,7 +692,7 @@ public class VideoFragment extends Fragment {
         try {
 
             final CaptureRequest.Builder captureBuilder =
-                    mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+                    mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_VIDEO_SNAPSHOT);
             // Orientation
             CameraManager manager = (CameraManager)getActivity().getSystemService(Context.CAMERA_SERVICE);
             int rotation = manager.getCameraCharacteristics(frontCameraId).get(CameraCharacteristics.SENSOR_ORIENTATION);
