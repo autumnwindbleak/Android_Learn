@@ -38,6 +38,8 @@ public class ImageFragment extends Fragment {
 
     ImageView mImageView;
 
+    ImageView mImageView2;
+
     private final static String TAG = "ImageFragment";
 
     static{
@@ -90,6 +92,10 @@ public class ImageFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         mImageView = view.findViewById(R.id.imageView);
         mImageView.setImageAlpha(0);
+
+        mImageView2 = view.findViewById(R.id.imageView2);
+        mImageView2.setImageAlpha(0);
+
     }
 
     @Override
@@ -106,6 +112,8 @@ public class ImageFragment extends Fragment {
             @Override
             public void onReceive(Context context, Intent intent) {
                 Bitmap bitmap = intent.getParcelableExtra("image");
+                Bitmap paperArea = null;
+                Bitmap drawing = null;
                 if(SelfConfiguration.GAUSSIAN_BLUR){
                     bitmap = GaussianBlur(getContext(),bitmap,25,5);
                 }
@@ -113,19 +121,24 @@ public class ImageFragment extends Fragment {
                     PaperDetection paperDetection = new PaperDetection(bitmap);
                     boolean paperFound = paperDetection.run();
                     if(paperFound){
-                        bitmap = paperDetection.getDrawing();
-//                        bitmap = paperDetection.getPaperArea();
-//                        bitmap = PaperDetection.newInstance(bitmap).run().getGray();
-                    } else {
-                        bitmap = null;
+                        drawing = paperDetection.getDrawing();
+                        paperArea = paperDetection.getPaperArea();
                     }
-
                 }
-                if(bitmap == null){
+                if(drawing == null){
                     return;
+                } else {
+                    mImageView.setImageBitmap(drawing);
+                    mImageView.setImageAlpha(255);
                 }
-                mImageView.setImageBitmap(bitmap);
-                mImageView.setImageAlpha(255);
+
+                if(paperArea == null){
+                    return;
+                } else {
+                    mImageView2.setImageBitmap(paperArea);
+                    mImageView2.setImageAlpha(255);
+                }
+
             }
         };
         localBroadcastManager.registerReceiver(broadcastReceiver,intentFilter);
