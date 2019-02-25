@@ -111,10 +111,15 @@ public class ImageFragment extends Fragment {
                 }
                 if(SelfConfiguration.PAPER_DETECTION){
                     PaperDetection paperDetection = new PaperDetection(bitmap);
-                    paperDetection.run();
-                    bitmap = paperDetection.getDrawing();
-//                    bitmap = paperDetection.getPaperArea();
-//                    bitmap = PaperDetection.newInstance(bitmap).run().getGray();
+                    boolean paperFound = paperDetection.run();
+                    if(paperFound){
+                        bitmap = paperDetection.getDrawing();
+//                        bitmap = paperDetection.getPaperArea();
+//                        bitmap = PaperDetection.newInstance(bitmap).run().getGray();
+                    } else {
+                        bitmap = null;
+                    }
+
                 }
                 if(bitmap == null){
                     return;

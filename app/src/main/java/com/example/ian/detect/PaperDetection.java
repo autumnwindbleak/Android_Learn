@@ -109,9 +109,9 @@ public class PaperDetection {
 
     /**
      * Function that use to process the detection
-     * @return a bitmap that shows only the paper area
+     * @return paper found or not
      */
-    public PaperDetection run(){
+    public boolean run(){
 
         //read src image
         if(ReadFromFile){
@@ -136,7 +136,7 @@ public class PaperDetection {
         //make the color gray
         gray = getGrayImage(denoised);
         if(gray == null) {
-            Log.d(TAG, "gray is");
+            Log.d(TAG, "gray is null");
         }
         //make only black and white using Canny
         binary = canny(gray,3,150,3);
@@ -144,6 +144,9 @@ public class PaperDetection {
         List<MatOfPoint> contours = new ArrayList<MatOfPoint>();
         Mat hierarchy = new Mat();
         Imgproc.findContours(binary,contours,hierarchy,Imgproc.RETR_EXTERNAL,Imgproc.CHAIN_APPROX_SIMPLE);
+        if(contours.size() < 1 ){
+            return false;
+        }
         //find the paper contour
         MatOfPoint longest = getPaperContours(contours);
 
@@ -169,7 +172,7 @@ public class PaperDetection {
         MatOfPoint2f hullpoints = getHullPoints(approx,hull);
 
         if(hullpoints.toArray().length == 0){
-            return null;
+            return false;
         }
 
         //get the 4 corners
@@ -187,7 +190,7 @@ public class PaperDetection {
         //if less than 4 corner points
         if(corners == null){
             Log.d(TAG, "didn't get enough corners. hullpoints length is " + hullpoints.toArray().length);
-            return null;
+            return false;
         }
 
         //draw the corner of the paper with blue
@@ -199,7 +202,7 @@ public class PaperDetection {
         perspective = perspectiveTransformation(ROI,corners,src);
         //turn around the picture so it top to be show on top
         Core.flip(perspective,perspective,-1);
-        return this;
+        return true;
     }
 
     /**

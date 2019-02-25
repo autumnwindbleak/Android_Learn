@@ -353,7 +353,7 @@ public class VideoFragment extends Fragment {
     private CameraCaptureSession.CaptureCallback mCaptureCallback = new CameraCaptureSession.CaptureCallback() {
 
         private void process(@NonNull CaptureResult request){
-            Log.d("camerastate", "process: state now are "+ CameraState);
+//            Log.d("camerastate", "process: state now are "+ CameraState);
             switch (CameraState){
                 case STATE_PREVIEW:{
                     break;
@@ -692,7 +692,7 @@ public class VideoFragment extends Fragment {
         try {
 
             final CaptureRequest.Builder captureBuilder =
-                    mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
+                    mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_VIDEO_SNAPSHOT);
             // Orientation
             CameraManager manager = (CameraManager)getActivity().getSystemService(Context.CAMERA_SERVICE);
             int rotation = manager.getCameraCharacteristics(frontCameraId).get(CameraCharacteristics.SENSOR_ORIENTATION);
